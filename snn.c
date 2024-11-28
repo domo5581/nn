@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <assert.h>
+#include <gsl/matrix>
 
 /*
 neural network
@@ -26,3 +27,37 @@ represent that as a matrix with # cols representing hidden neuron amount and # r
 this works.
 */
 
+typedef struct Layer {
+    struct Layer* previous;
+    struct Layer* next;
+    int neurons; // number of neurons
+    gsl_matrix* weights; // make a matrix of size m x n, where m is the number of neurons in the
+                         // next layer while n is the number of neurons in the current layer
+                         // -> exploit BLAS to matmul and get the results of the next layer
+} Layer;
+
+Layer* createlayer(Layer* lprev, Layer* lnext, int neurons) {
+    Layer* self = (Layer*) calloc(1, sizeof(Layer));
+    if (self == NULL) return NULL;
+    self->previous = lprev;
+    self->next = lnext;
+    // number of neurons MUST be more than zero sigma
+    self->neurons = neurons;
+
+    // setup the weights matrix
+    assert(lnext != NULL);
+    self->weights = gsl_matrix_calloc(lnext->neurons, neurons);
+    
+    return self;
+}
+
+void freelayer(Layer* layer) {
+    assert(layer != NULL);
+    if (layer->weights != NULL) gsl_matrix_free(layer->weights);
+    free(layer);
+}
+
+void forwardprop(Layer* layer) {
+    
+
+}

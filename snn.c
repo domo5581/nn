@@ -34,15 +34,19 @@ typedef struct Layer {
     gsl_matrix* weights; // make a matrix of size m x n, where m is the number of neurons in the
                          // next layer while n is the number of neurons in the current layer
                          // -> exploit BLAS to matmul and get the results of the next layer
+    gsl_matrix* values;  // the layer's values
 } Layer;
 
-Layer* createlayer(Layer* lprev, Layer* lnext, int neurons) {
+Layer* createlayer(Layer* lprev, Layer* lnext, int neurons, gsl_matrix* nvalues) {
     Layer* self = (Layer*) calloc(1, sizeof(Layer));
     if (self == NULL) return NULL;
     self->previous = lprev;
     self->next = lnext;
     // number of neurons MUST be more than zero sigma
     self->neurons = neurons;
+    
+    assert((neurons == nvalues->size2) && (nvalues->size1 == lnext->neurons));
+    self->values = nvaules;
 
     // setup the weights matrix
     assert(lnext != NULL);
@@ -54,10 +58,10 @@ Layer* createlayer(Layer* lprev, Layer* lnext, int neurons) {
 void freelayer(Layer* layer) {
     assert(layer != NULL);
     if (layer->weights != NULL) gsl_matrix_free(layer->weights);
+    if (layer->values != NULL) gsl_matrix_free(layer->values);
     free(layer);
 }
 
 void forwardprop(Layer* layer) {
     
-
 }

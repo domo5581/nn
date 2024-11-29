@@ -3,6 +3,8 @@
 #include <math.h>
 #include <assert.h>
 #include <gsl/matrix>
+#include <gsl/gsl_blas.h>
+#include <gsl/gsl_cblas.h>
 
 #define ALPHA 0.2
 
@@ -61,13 +63,30 @@ void forwardprop(Layer* layer) {
     }
 }
 
-void cost(Layer* layer, gsl_matrix* expected) {
-    // (for mnist at least) your expected will be a matrix of [10x1]
-    assert(layer->values->size1 == expected->size1);
+double matrixsum(gsl_matrix* matrix) {
+    double result;
+    for (unsigned int i = 0; i < matrix->size1; i++) {
+        for (unsigned int j = 0; j < matrix->size2; j++) {
+            result += gsl_matrix_get(matrix, i, j);
+        }
+    }
+    return result;
+}
 
+double cost(Layer* layer, gsl_matrix* expected) {
+    // mean squared error
+    // (for mnist at least) your expected will be a matrix of [10x1]
+    // ONLY DO THIS ON THE OUTPUT LAYER!!!!!! the layer that should be passed in is the output layer ONLY
+    assert(layer->values->size1 == expected->size1);
+    gsl_matrix* result = gsl_matrix_alloc(expected->size1, 1);
+    gsl_matrix_memcpy(result, layer->values);
+    gsl_matrix_sub(result, expected);
+    gsl_matrix_mul_elements(result, result); // squares matrix
+    double matsum = matrixsum(result);
+    return (((double)1 / layer->neurons) * matsum);
 }
 
 void backprop(Layer* layer) {
     assert(layer->previous != NULL);
-    
+        
 }

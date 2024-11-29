@@ -52,7 +52,11 @@ Layer* createlayer(Layer* lprev, Layer* lnext, int neurons, gsl_matrix* nvalues)
     self->weights = gsl_matrix_calloc(lnext->neurons, neurons);
     self->biases = gsl_matrix_calloc(lnext->neurons, 1);
     // make the matrix have uniform random values from -0.5 to 0.5
-    gsl_matrix_set_all(self->weights, uniformrandom(-0.5, 0,5));
+    for (unsigned int i = 0; i < self->weights->size1; ++i) {
+        for (unsigned int j = 0; j < self->weights->size2; ++j) {
+            gsl_matrix_set(self->weights, i, j, uniformrandom(-0.5, 0.5));
+        }
+    }
     return self;
 }
 
@@ -76,7 +80,7 @@ void forwardprop(Layer* layer) {
 }
 
 double matrixsum(gsl_matrix* matrix) {
-    double result;
+    double result = 0.0;
     for (unsigned int i = 0; i < matrix->size1; i++) {
         for (unsigned int j = 0; j < matrix->size2; j++) {
             result += gsl_matrix_get(matrix, i, j);

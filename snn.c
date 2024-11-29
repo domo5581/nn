@@ -7,6 +7,8 @@
 #include <gsl/gsl_cblas.h>
 
 #define ALPHA 0.2
+#define LEARNING_RATE 0.01
+
 
 typedef struct Layer {
     struct Layer* previous;
@@ -73,20 +75,33 @@ double matrixsum(gsl_matrix* matrix) {
     return result;
 }
 
-double cost(Layer* layer, gsl_matrix* expected) {
-    // mean squared error
-    // (for mnist at least) your expected will be a matrix of [10x1]
-    // ONLY DO THIS ON THE OUTPUT LAYER!!!!!! the layer that should be passed in is the output layer ONLY
+double msecost(Layer* layer, gsl_matrix* expected) {
+    // mean squared error cost fxn
+    // only on output layer
     assert(layer->values->size1 == expected->size1);
     gsl_matrix* result = gsl_matrix_alloc(expected->size1, 1);
     gsl_matrix_memcpy(result, layer->values);
     gsl_matrix_sub(result, expected);
     gsl_matrix_mul_elements(result, result); // squares matrix
     double matsum = matrixsum(result);
+    gsl_matrix_free(result);
     return (((double)1 / layer->neurons) * matsum);
+    // you dont need this for mean squared error. need this if you implement a diff cost function
 }
 
-void backprop(Layer* layer) {
+void backprop(Layer* layer, gsl_matrix* expected) {
+    // b/c you use mse, you can just do like ouput layer - expected output (matrix subtraction)
     assert(layer->previous != NULL);
+        // signifies this is the output layer - previous layer would be hidden layer (ideally)
+        gsl_matrix* deltao = gsl_matrix_alloc(layer->neurons, 1);
+        gsl_matrix_memcpy(deltao, layer->values);
+        gsl_matrix_sub(deltao, expected);
+        gsl_matrix* prevlayertranposed = gsl_matrix_alloc(1, layer->previous->values->size2);
+        gsl_matrix_transpose_memcpy(prevlayertranposed, layer->previous->values);
+        gsl_matrix* updatedweights = gsl_matrix_alloc(layer->neurons, layer->previous->neurons);
+        gsl_blas_dgemm(CblasNoTrans, CblasNoTrans, 1.0, deltao, prevlayertranposed, 0.0, updatedweights);
+        gsl_matrix_scale(updatedweights, (double)(LEARNING_RATE * -1.00));
+        gsl_matrix_memcpy(layer->previous->weights, updatedweights);
         
+    }
 }

@@ -102,6 +102,6 @@ void backprop(Layer* layer, gsl_matrix* expected) {
         gsl_blas_dgemm(CblasNoTrans, CblasNoTrans, 1.0, deltao, prevlayertranposed, 0.0, updatedweights);
         gsl_matrix_scale(updatedweights, (double)(LEARNING_RATE * -1.00));
         gsl_matrix_memcpy(layer->previous->weights, updatedweights);
-        
+        // finish impl
     }
 }

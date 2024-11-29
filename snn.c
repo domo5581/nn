@@ -4,28 +4,7 @@
 #include <assert.h>
 #include <gsl/matrix>
 
-/*
-neural network
-input layer -> hidden layer -> output layer
-each neuron has weights, numweights = numneurons
-neuron value * weight goes to another neuron, and that sum goes through activation fxn to determine that other neuron"'s output
-
-5 input layers 3 hidden layers
-each connection from a neuron carries a weight, 3 connections from a single neuron. new formula, num connections is equal to hidden num neurons * input neurons
-
-each neuron only gets the weighted sum from that number. ie the first hidden neuron only gets the weighted sum from the input values * their respective first weights.
-
-represent that as a matrix with # cols representing hidden neuron amount and # rows representing input neurons
-
-[.1 .2 .3 .4 .5 w1s of each input neuron
- .3 .5 .7 .9 1.1 w2s
- .2 .4 .5 .8 1.2 ] w3s
-
- just multiply input values by w1 row to get hidden neuron 1's value
- repeat for hn2 and hn3
-
-this works.
-*/
+#define ALPHA 0.2
 
 typedef struct Layer {
     struct Layer* previous;
@@ -37,6 +16,15 @@ typedef struct Layer {
     gsl_matrix* values;  // the layer's values
 } Layer;
 
+double uniformrandom(double low, double high) {
+    // [low, high)
+    return low + ((double)rand() / (RAND_MAX / (high - low)));
+}
+
+double relu(double input, double alpha) {
+    return (input >= 0) ? input : (alpha * input);
+}
+
 Layer* createlayer(Layer* lprev, Layer* lnext, int neurons, gsl_matrix* nvalues) {
     Layer* self = (Layer*) calloc(1, sizeof(Layer));
     if (self == NULL) return NULL;
@@ -45,13 +33,14 @@ Layer* createlayer(Layer* lprev, Layer* lnext, int neurons, gsl_matrix* nvalues)
     // number of neurons MUST be more than zero sigma
     self->neurons = neurons;
     
-    assert((neurons == nvalues->size2) && (nvalues->size1 == lnext->neurons));
+    assert(neurons == nvalues->size1);
     self->values = nvaules;
 
     // setup the weights matrix
     assert(lnext != NULL);
     self->weights = gsl_matrix_calloc(lnext->neurons, neurons);
-    
+    // make the matrix have uniform random values from -0.5 to 0.5
+    gsl_matrix_set_all(self->weights, uniformrandom(-0.5, 0,5));
     return self;
 }
 
@@ -63,5 +52,22 @@ void freelayer(Layer* layer) {
 }
 
 void forwardprop(Layer* layer) {
+    assert(layer->next != NULL);
+    gsl_blas_dgemm(CblasNoTrans, CblasNoTrans, 1.0, layer->weights, layer->values, 0, layer->next->values);
+    // layer->next->values will only ever have a single row
+    for(unsigned int i = 0; i < layer->next->values->size1; i++) {
+        double davalue = gsl_matrix_get(layer->next->values, i, 0);
+        gsl_matrix_set(layer->next->values, i, 0, relu(davalue, ALPHA));
+    }
+}
+
+void cost(Layer* layer, gsl_matrix* expected) {
+    // (for mnist at least) your expected will be a matrix of [10x1]
+    assert(layer->values->size1 == expected->size1);
+
+}
+
+void backprop(Layer* layer) {
+    assert(layer->previous != NULL);
     
 }

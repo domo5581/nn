@@ -143,3 +143,29 @@ Layer* create_fc(int input_neurons, int output_neurons, fcpos position) {
 	return layer;
 }
 
+void free_layer(Layer* layer) {
+	if (!layer) return;
+	switch (layer->type) {
+		case conv:
+			for (int f = 0; f < layer->params.conv_params.num_filters; f++) {
+				for (int h = 0; h < layer->params.conv_params.num_filters; h++) {
+					free(layer->params.conv_params.filters[f][h]);
+				}
+				free(layer->params.conv_params.filters[f]);
+			}
+			free(layer->params.conv_params.filters);
+			break;
+		case fully_connected:
+			for (int i = 0; i < layer->params.fc_params.output_neurons; i++) {
+				free(layer->params.fc_params.weights[i]);
+			}
+			free(layer->params.fc_params.weights);
+    	free(layer->params.fc_params.biases);
+      break;
+		default:
+			break;
+	}
+	free(layer);
+}
+
+

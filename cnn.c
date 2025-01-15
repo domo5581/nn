@@ -46,14 +46,21 @@ typedef struct {
 
 		struct {
 			int output_size;
-			float (*weights);
-			float (*biases);
+			float* weights;
+			float* biases;
 			activation type;
 		} fc_params;
 	} params;
-	float *output;
-	float *delta;
+	float* output;
+	float* delta;
+	float* pre_activation;
+	float (*activation_g)(float);
 } Layer;
+
+typedef struct {
+	Layer** layers;
+	int num_layers;
+} Network;
 
 float he_init(int fan_in) {
 	float scale = sqrt(2.0f / fan_in);
@@ -73,6 +80,15 @@ float relu(float x) {
 
 float sigmoid(float x) {
 	return 1 / (1 + exp(-x));
+}
+
+float relu_g(float x) {
+	return x > 0 ? 1 : 0;
+}
+
+float sigmoid_g(float x) {
+	float sig = sigmoid(x);
+	return sig * (1 - sig);
 }
 
 void softmax(float* input, float* output, int size) {
@@ -182,22 +198,26 @@ void free_layer(Layer* layer) {
 		case input:
 			free(layer->output);
     	free(layer);
+			break;
 		case conv:
 			free(layer->params.conv_params.weights);
     	free(layer->params.conv_params.biases);
     	free(layer->output);
     	free(layer->delta);
     	free(layer);
+			break;
 		case max_pool:
 			free(layer->output);
     	free(layer->delta);
     	free(layer);
+			break;
 		case fully_connected:
 			free(layer->params.fc_params.weights);
     	free(layer->params.fc_params.biases);
     	free(layer->output);
     	free(layer->delta);
     	free(layer);
+			break;
 	}
 }
 
@@ -335,5 +355,104 @@ void forward_propagation(Layer* layer, float* input_fc) {
     case fully_connected:
       fc_forward(layer, input);
       break;
-    }
+  }
 }
+
+void network_forward(Network* network, float* input) {
+	float* current_input = input;
+	for (int i = 0; i < network->num_layers; i++) {
+		forward_propagation(network->layers[i], current_input);
+		current_input = network->layers[i]->output;
+	}
+}
+
+void fc_backward(Layer* layer, float* prev_delta, float* input, float learning_rate) {
+	int output_size = layer->params.fc_params.output_size;
+  int input_size = layer->height * layer->width * layer->channels;
+
+  // gradient of weights
+	for(int o = 0; o < output_size; o++) {
+  	for(int i = 0; i < input_size; i++) {
+    	layer->params.fc_params.weights[o * input_size + i] -= learning_rate * prev_delta[o] * input[i];
+    }
+    layer->params.fc_params.biases[o] -= learning_rate * prev_delta[o];
+  }
+
+  // gradient w/respect to inputs
+	for(int i = 0; i < input_size; i++) {
+  	float sum = 0;
+    for(int o = 0; o < output_size; o++) {
+    	sum += layer->params.fc_params.weights[o * input_size + i] * prev_delta[o];
+    }
+  	layer->delta[i] = sum * layer->activation_g(layer->pre_activation[i]);
+  }
+}
+
+void conv_backward(Layer* layer, float* prev_delta, float* input, float learning_rate) {
+	int num_filters = layer->params.conv_params.num_filters;
+  int channels = layer->channels;
+  int filter_size = layer->params.conv_params.filter_size;
+  int input_height = layer->height;
+  int input_width = layer->width;
+  int padding = layer->params.conv_params.zero_padding;
+  int stride = layer->params.conv_params.stride;
+  int output_height = (input_height + 2 * padding - filter_size) / stride + 1;
+  int output_width = (input_width + 2 * padding - filter_size) / stride + 1;
+
+  // gradient w/respect to filters
+  for(int f = 0; f < num_filters; f++) {
+    for(int c = 0; c < channels; c++) {
+      for(int fh = 0; fh < filter_size; fh++) {
+        for(int fw = 0; fw < filter_size; fw++) {
+          float grad = 0;
+          for(int oh = 0; oh < output_height; oh++) {
+            for(int ow = 0; ow < output_width; ow++) {
+              int ih = oh * stride + fh - padding;
+              int iw = ow * stride + fw - padding;
+              if(ih >= 0 && ih < input_height && iw >= 0 && iw < input_width) {
+              	grad += input[c * input_height * input_width + ih * input_width + iw] * prev_delta[f * output_height * output_width + oh * output_width + ow];
+              }
+            }
+          }
+          int index = f * channels * filter_size * filter_size + c * filter_size * filter_size + fh * filter_size + fw;
+          layer->params.conv_params.weights[index] -= learning_rate * grad;
+        }
+      }
+    }
+  }
+
+  // gradient w/respect to biases
+	for(int f = 0; f < num_filters; f++) {
+  	float grad = 0;
+    for(int oh = 0; oh < output_height; oh++) {
+      for(int ow = 0; ow < output_width; ow++) {
+        grad += prev_delta[f * output_height * output_width + oh * output_width + ow];
+      }
+    }
+    layer->params.conv_params.biases[f] -= learning_rate * grad;
+  }
+
+  // gradient with respect to inputs
+  for(int c = 0; c < channels; c++) {
+    for(int ih = 0; ih < input_height; ih++) {
+      for(int iw = 0; iw < input_width; iw++) {
+        float grad = 0;
+        for(int f = 0; f < num_filters; f++) {
+          for(int fh = 0; fh < filter_size; fh++) {
+            for(int fw = 0; fw < filter_size; fw++) {
+              int oh = (ih - fh + padding) / stride;
+              int ow = (iw - fw + padding) / stride;
+              if((ih - fh + padding) % stride == 0 && (iw - fw + padding) % stride == 0 && oh < output_height && ow < output_width) {
+              	int w_index = f * channels * filter_size * filter_size + c * filter_size * filter_size + fh * filter_size + fw;
+              	grad += layer->params.conv_params.weights[w_index] * prev_delta[f * output_height * output_width + oh * output_width + ow];
+              }
+            }
+          }
+        }
+        layer->delta[c * input_height * input_width + ih * input_width + iw] = grad * layer->activation_g(layer->pre_activation[c * input_height * input_width + ih * input_width + iw]);
+      }
+    }
+  }
+}
+
+

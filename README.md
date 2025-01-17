@@ -1,6 +1,7 @@
 # nn - Neural Networks in C
 
 This repository implements various neural networks in C, focusing mainly on targetting embedded systems or creating hardware accelerators (FPGA-Based, ASIC, etc.) \
+
 This project was created as part of my independent study course, where I am currently researching the design of hardware accelerators for high-performance workloads
 
 ### Current Implementations (project index)
@@ -10,7 +11,7 @@ This project was created as part of my independent study course, where I am curr
 `mnist.c` - Driver code for `cnn.c` which trains on the [MNIST](https://yann.lecun.com/exdb/mnist/) dataset
 
 ### Usage
-`mnist.c` is a great example of how the library is used, but basic usage boils down to a few simple things: \
+`mnist.c` is a great example of how the library is used, but basic usage boils down to a few simple things:
 
 1) Importing `cnn.c` into your code
 2) Creating a network and creating layers:
